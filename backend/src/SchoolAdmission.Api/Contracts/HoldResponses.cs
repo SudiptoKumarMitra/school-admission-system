@@ -35,3 +35,10 @@ public sealed record MyHoldItem(
     DateTimeOffset CreatedAt,
     DateTimeOffset? ConfirmedAt,
     DateTimeOffset ServerTime);
+
+/// <summary>200 response of POST /holds/{holdId}/confirm.</summary>
+public sealed record ConfirmResponse(
+    string HoldId,
+    string Status,
+    string ClassId,
+    DateTimeOffset? ConfirmedAt);

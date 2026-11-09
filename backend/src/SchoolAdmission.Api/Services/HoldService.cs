@@ -16,6 +16,8 @@ public class HoldService(AdmissionDbContext db, AppOptions options, ILogger<Hold
     private sealed record IntRow(int Value);
     private sealed record TimeRow(DateTimeOffset Value);
 
+    private sealed record StateRow(Guid ClassId, string StudentId, string Status, bool PastExpiry, DateTimeOffset? ConfirmedAt);
+
     private sealed record HoldRow(
         Guid Id, Guid ClassId, string ClassName, string Status,
         DateTimeOffset ExpiresAt, DateTimeOffset CreatedAt, DateTimeOffset? ConfirmedAt, DateTimeOffset ServerTime);
@@ -139,4 +141,52 @@ public class HoldService(AdmissionDbContext db, AppOptions options, ILogger<Hold
     private static HoldResponse ToHoldResponse(HoldRow r) => new(
         Ids.FormatHold(r.Id), Ids.FormatClass(r.ClassId), r.Status,
         r.ExpiresAt, r.ClassName, r.CreatedAt, r.ConfirmedAt, r.ServerTime);
+
+    /// <summary>
+    /// Confirms the student's own, unexpired HELD hold (the fee is treated as paid). One conditional
+    /// UPDATE decides the outcome, so simultaneous confirms change the row at most once; repeating a
+    /// confirm on an already confirmed hold succeeds without changing anything.
+    /// </summary>
+    public async Task<ServiceResult<ConfirmResponse>> ConfirmAsync(Guid holdId, string studentId, CancellationToken ct)
+    {
+        var updated = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE holds SET status = 'CONFIRMED', confirmed_at = clock_timestamp()
+            WHERE id = {holdId} AND student_id = {studentId}
+              AND status = 'HELD' AND expires_at > clock_timestamp()
+            """, ct);
+
+        var state = await ReadStateAsync(holdId, ct);
+        if (state is null)
+        {
+            return ServiceResult<ConfirmResponse>.Fail(ApiErrors.HoldNotFound());
+        }
+
+        if (state.StudentId != studentId)
+        {
+            return ServiceResult<ConfirmResponse>.Fail(ApiErrors.NotHoldOwner());
+        }
+
+        if (state.Status == HoldStatus.Confirmed)
+        {
+            if (updated == 1)
+            {
+                logger.LogInformation("Hold {HoldId} confirmed by student {Student}",
+                    Ids.FormatHold(holdId), StudentId.Mask(studentId));
+            }
+
+            return ServiceResult<ConfirmResponse>.Ok(new ConfirmResponse(
+                Ids.FormatHold(holdId), HoldStatus.Confirmed, Ids.FormatClass(state.ClassId), state.ConfirmedAt));
+        }
+
+        return ServiceResult<ConfirmResponse>.Fail(
+            state.Status == HoldStatus.Cancelled ? ApiErrors.HoldCancelled() : ApiErrors.HoldExpired());
+    }
+
+    private async Task<StateRow?> ReadStateAsync(Guid holdId, CancellationToken ct) =>
+        (await db.Database.SqlQuery<StateRow>($"""
+            SELECT class_id AS "ClassId", student_id AS "StudentId", status AS "Status",
+                   (status = 'HELD' AND expires_at <= clock_timestamp()) AS "PastExpiry",
+                   confirmed_at AS "ConfirmedAt"
+            FROM holds WHERE id = {holdId}
+            """).ToListAsync(ct)).SingleOrDefault();
 }
