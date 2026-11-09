@@ -11,13 +11,22 @@ public static class ConnectionStringDefaults
     /// </summary>
     public const int DefaultMaxPoolSize = 30;
 
-    /// <summary>Applies <see cref="DefaultMaxPoolSize"/> unless the connection string sets its own.</summary>
+    /// <summary>
+    /// Applies <see cref="DefaultMaxPoolSize"/> unless the connection string sets its own, and turns off
+    /// Kerberos (GSS) probing: this app uses password authentication, and the slim runtime image does not
+    /// ship the Kerberos library, so the probe only produces an error line at startup.
+    /// </summary>
     public static string Apply(string connectionString)
     {
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
         if (!builder.ShouldSerialize("Maximum Pool Size"))
         {
             builder.MaxPoolSize = DefaultMaxPoolSize;
+        }
+
+        if (!builder.ShouldSerialize("GSS Encryption Mode"))
+        {
+            builder.GssEncryptionMode = GssEncryptionMode.Disable;
         }
 
         return builder.ConnectionString;

@@ -15,6 +15,17 @@ public class ConnectionStringDefaultsTests
         Assert.Equal("db", result.Host);
     }
 
+    [Fact]
+    public void Kerberos_probing_is_off_unless_configured()
+    {
+        var off = new NpgsqlConnectionStringBuilder(ConnectionStringDefaults.Apply("Host=db"));
+        var chosen = new NpgsqlConnectionStringBuilder(
+            ConnectionStringDefaults.Apply("Host=db;GSS Encryption Mode=Prefer"));
+
+        Assert.Equal(GssEncryptionMode.Disable, off.GssEncryptionMode);
+        Assert.Equal(GssEncryptionMode.Prefer, chosen.GssEncryptionMode);
+    }
+
     [Theory]
     [InlineData("Host=db;Maximum Pool Size=7")]
     [InlineData("Host=db;MaxPoolSize=7")]
