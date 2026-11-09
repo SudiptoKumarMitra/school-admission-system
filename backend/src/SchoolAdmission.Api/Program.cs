@@ -11,9 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(sp => AppOptionsLoader.Load(sp.GetRequiredService<IConfiguration>()));
 
 builder.Services.AddDbContext<AdmissionDbContext>((sp, options) =>
-    options.UseNpgsql(
+    options.UseNpgsql(ConnectionStringDefaults.Apply(
         sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")
-            ?? throw new InvalidOperationException("ConnectionStrings__Default is not set.")));
+            ?? throw new InvalidOperationException("ConnectionStrings__Default is not set."))));
 
 builder.Services.AddScoped<ClassService>();
 builder.Services.AddScoped<HoldService>();

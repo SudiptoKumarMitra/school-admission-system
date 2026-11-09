@@ -30,6 +30,8 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
         await ExecuteAdminAsync($"CREATE DATABASE {_databaseName}");
 
         builder.Database = _databaseName;
+        // Several hosts and test classes run in parallel against one server: keep each pool modest.
+        builder.MaxPoolSize = 20;
         ConnectionString = builder.ConnectionString;
     }
 
