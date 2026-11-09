@@ -1,0 +1,73 @@
+# School Admission System: PostgreSQL + backend (ASP.NET Core) + frontend (React, served by nginx).
+#
+#   docker compose up --build        -> open http://localhost:3000   (API: http://localhost:8080)
+#   docker compose down              -> stops everything, KEEPS the data (named volume `pgdata`)
+#   docker compose down -v           -> stops everything and DELETES the data
+#
+# Optional: HOLD_DURATION_SECONDS=60 docker compose up   (hold length in seconds, default 600)
+name: school-admission
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: school_admission
+      POSTGRES_USER: school
+      POSTGRES_PASSWORD: school # demo credentials for local use only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U school -d school_admission"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    # No host port is published, so it cannot clash with a PostgreSQL already running on 5432.
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=school_admission;Username=school;Password=school"
+      HOLD_DURATION_SECONDS: ${HOLD_DURATION_SECONDS:-600}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    environment:
+      # Used by the browser, so it must be reachable from the user's machine.
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Bonus: a second backend process on another port using the same database.
+  #   docker compose --profile bonus up --build   -> API also on http://localhost:8081
+  backend-2:
+    profiles: ["bonus"]
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=school_admission;Username=school;Password=school"
+      HOLD_DURATION_SECONDS: ${HOLD_DURATION_SECONDS:-600}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
