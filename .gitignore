@@ -1,0 +1,23 @@
+# Claude Code files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+
+# Architect's working plan (restates the confidential assignment; never publish)
+plan/
+
+# .NET
+bin/
+obj/
+.nuget/
+TestResults/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Local environment
+.env
+*.local
