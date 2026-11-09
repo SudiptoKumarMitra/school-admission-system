@@ -17,6 +17,7 @@ builder.Services.AddDbContext<AdmissionDbContext>((sp, options) =>
 
 builder.Services.AddScoped<ClassService>();
 builder.Services.AddScoped<HoldService>();
+builder.Services.AddHostedService<HoldExpirySweeper>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter()));

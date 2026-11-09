@@ -11,10 +11,11 @@ public abstract class ApiTestBase(PostgresDatabaseFixture database)
     protected TestDb Db => new(Database.ConnectionString);
 
     protected virtual int HoldSeconds => 600;
+    protected virtual int SweepSeconds => 1;
 
     public Task InitializeAsync()
     {
-        Factory = new ApiFactory(Database.ConnectionString, HoldSeconds);
+        Factory = new ApiFactory(Database.ConnectionString, HoldSeconds, SweepSeconds);
         Client = Factory.CreateClient();
         Api = new ApiClient(Client);
         return Task.CompletedTask;
