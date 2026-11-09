@@ -182,6 +182,46 @@ public class HoldService(AdmissionDbContext db, AppOptions options, ILogger<Hold
             state.Status == HoldStatus.Cancelled ? ApiErrors.HoldCancelled() : ApiErrors.HoldExpired());
     }
 
+    /// <summary>
+    /// Cancels the student's own, unexpired HELD hold and frees its seat. Cancelling an already
+    /// cancelled hold succeeds; a confirmed hold cannot be cancelled (the fee is paid).
+    /// </summary>
+    public async Task<ServiceResult<bool>> CancelAsync(Guid holdId, string studentId, CancellationToken ct)
+    {
+        var updated = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE holds SET status = 'CANCELLED', cancelled_at = clock_timestamp()
+            WHERE id = {holdId} AND student_id = {studentId}
+              AND status = 'HELD' AND expires_at > clock_timestamp()
+            """, ct);
+
+        var state = await ReadStateAsync(holdId, ct);
+        if (state is null)
+        {
+            return ServiceResult<bool>.Fail(ApiErrors.HoldNotFound());
+        }
+
+        if (state.StudentId != studentId)
+        {
+            return ServiceResult<bool>.Fail(ApiErrors.NotHoldOwner());
+        }
+
+        switch (state.Status)
+        {
+            case HoldStatus.Cancelled:
+                if (updated == 1)
+                {
+                    logger.LogInformation("Hold {HoldId} cancelled by student {Student}",
+                        Ids.FormatHold(holdId), StudentId.Mask(studentId));
+                }
+
+                return ServiceResult<bool>.Ok(true);
+            case HoldStatus.Confirmed:
+                return ServiceResult<bool>.Fail(ApiErrors.CannotCancelConfirmed());
+            default:
+                return ServiceResult<bool>.Fail(ApiErrors.HoldExpired());
+        }
+    }
+
     private async Task<StateRow?> ReadStateAsync(Guid holdId, CancellationToken ct) =>
         (await db.Database.SqlQuery<StateRow>($"""
             SELECT class_id AS "ClassId", student_id AS "StudentId", status AS "Status",

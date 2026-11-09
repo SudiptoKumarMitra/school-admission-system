@@ -9,6 +9,7 @@ public static class HoldEndpoints
     {
         app.MapGet("/holds/{holdId}", GetHold);
         app.MapPost("/holds/{holdId}/confirm", ConfirmHold);
+        app.MapDelete("/holds/{holdId}", CancelHold);
         app.MapGet("/me/holds", GetMyHolds);
         return app;
     }
@@ -40,6 +41,24 @@ public static class HoldEndpoints
 
         var result = await holds.ConfirmAsync(id, studentId!, ct);
         return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToResult();
+    }
+
+    private static async Task<IResult> CancelHold(
+        string holdId, HttpRequest request, HoldService holds, CancellationToken ct)
+    {
+        var (studentId, headerError) = StudentIdHeader.Read(request);
+        if (headerError is not null)
+        {
+            return headerError.ToResult();
+        }
+
+        if (!Ids.TryParseHold(holdId, out var id))
+        {
+            return ApiErrors.HoldNotFound().ToResult();
+        }
+
+        var result = await holds.CancelAsync(id, studentId!, ct);
+        return result.IsSuccess ? Results.NoContent() : result.Error!.ToResult();
     }
 
     private static async Task<IResult> GetMyHolds(HttpRequest request, HoldService holds, CancellationToken ct)

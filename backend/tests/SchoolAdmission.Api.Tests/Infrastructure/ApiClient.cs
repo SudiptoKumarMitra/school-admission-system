@@ -72,6 +72,17 @@ public sealed class ApiClient(HttpClient http)
         return Http.SendAsync(request);
     }
 
+    public Task<HttpResponseMessage> CancelAsync(string holdId, string? studentId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/holds/{holdId}");
+        if (studentId is not null)
+        {
+            request.Headers.TryAddWithoutValidation("X-Student-Id", studentId);
+        }
+
+        return Http.SendAsync(request);
+    }
+
     public async Task<JsonElement> GetClassAsync(string classId)
     {
         var response = await Http.GetAsync($"/classes/{classId}");
