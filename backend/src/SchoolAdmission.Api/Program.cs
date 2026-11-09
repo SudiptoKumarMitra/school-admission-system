@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolAdmission.Api.Configuration;
 using SchoolAdmission.Api.Data;
 using SchoolAdmission.Api.Http;
+using SchoolAdmission.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,11 @@ builder.Services.AddDbContext<AdmissionDbContext>((sp, options) =>
     options.UseNpgsql(
         sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")
             ?? throw new InvalidOperationException("ConnectionStrings__Default is not set.")));
+
+builder.Services.AddScoped<ClassService>();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter()));
 
 builder.Services.AddCors();
 builder.Services.AddOptions<CorsOptions>().Configure<AppOptions>((cors, app) =>
@@ -52,6 +58,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 app.UseCors();
 
 app.MapHealthEndpoints();
+app.MapClassEndpoints();
 
 app.MapFallback(() => ProblemResults.NotFound(ErrorCodes.NotFound, "The requested resource was not found.").ToResult());
 
