@@ -1,22 +1,15 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
+using SchoolAdmission.Api.Tests.Infrastructure;
 
 namespace SchoolAdmission.Api.Tests;
 
-public class BasicApiTests : IClassFixture<WebApplicationFactory<Program>>
+public class BasicApiTests(PostgresDatabaseFixture database) : ApiTestBase(database)
 {
-    private readonly WebApplicationFactory<Program> _factory;
-
-    public BasicApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
-
     [Fact]
-    public async Task Health_returns_ok()
+    public async Task Health_returns_ok_when_database_is_reachable()
     {
-        var client = _factory.CreateClient();
-
-        var response = await client.GetAsync("/health");
+        var response = await Client.GetAsync("/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -26,9 +19,7 @@ public class BasicApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task Unknown_route_returns_problem_json_404_with_code()
     {
-        var client = _factory.CreateClient();
-
-        var response = await client.GetAsync("/does-not-exist");
+        var response = await Client.GetAsync("/does-not-exist");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -40,13 +31,12 @@ public class BasicApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task Cors_preflight_allows_the_student_id_header()
     {
-        var client = _factory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Options, "/health");
         request.Headers.Add("Origin", "http://localhost:3000");
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "x-student-id,content-type");
 
-        var response = await client.SendAsync(request);
+        var response = await Client.SendAsync(request);
 
         Assert.True(response.Headers.Contains("Access-Control-Allow-Origin"));
         var allowedHeaders = string.Join(",", response.Headers.GetValues("Access-Control-Allow-Headers"));
@@ -56,7 +46,7 @@ public class BasicApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public void Invalid_hold_duration_prevents_startup()
     {
-        var factory = _factory.WithWebHostBuilder(b => b.UseSetting("HOLD_DURATION_SECONDS", "zero"));
+        var factory = Factory.WithWebHostBuilder(b => b.UseSetting("HOLD_DURATION_SECONDS", "zero"));
 
         var ex = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
 

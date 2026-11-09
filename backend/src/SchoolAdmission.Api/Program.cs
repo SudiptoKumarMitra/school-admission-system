@@ -1,11 +1,18 @@
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using SchoolAdmission.Api.Configuration;
+using SchoolAdmission.Api.Data;
 using SchoolAdmission.Api.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Options are resolved lazily from IConfiguration so test hosts can override settings.
 builder.Services.AddSingleton(sp => AppOptionsLoader.Load(sp.GetRequiredService<IConfiguration>()));
+
+builder.Services.AddDbContext<AdmissionDbContext>((sp, options) =>
+    options.UseNpgsql(
+        sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")
+            ?? throw new InvalidOperationException("ConnectionStrings__Default is not set.")));
 
 builder.Services.AddCors();
 builder.Services.AddOptions<CorsOptions>().Configure<AppOptions>((cors, app) =>
@@ -47,6 +54,8 @@ app.UseCors();
 app.MapHealthEndpoints();
 
 app.MapFallback(() => ProblemResults.NotFound(ErrorCodes.NotFound, "The requested resource was not found.").ToResult());
+
+await DatabaseStartup.WaitAndMigrateAsync(app.Services, app.Lifetime.ApplicationStopping);
 
 app.Run();
 
