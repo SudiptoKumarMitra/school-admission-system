@@ -60,6 +60,7 @@ app.UseCors();
 
 app.MapHealthEndpoints();
 app.MapClassEndpoints();
+app.MapHoldEndpoints();
 
 app.MapFallback(() => ProblemResults.NotFound(ErrorCodes.NotFound, "The requested resource was not found.").ToResult());
 

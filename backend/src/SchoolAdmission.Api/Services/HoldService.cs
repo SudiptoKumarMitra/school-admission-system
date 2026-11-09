@@ -16,6 +16,10 @@ public class HoldService(AdmissionDbContext db, AppOptions options, ILogger<Hold
     private sealed record IntRow(int Value);
     private sealed record TimeRow(DateTimeOffset Value);
 
+    private sealed record HoldRow(
+        Guid Id, Guid ClassId, string ClassName, string Status,
+        DateTimeOffset ExpiresAt, DateTimeOffset CreatedAt, DateTimeOffset? ConfirmedAt, DateTimeOffset ServerTime);
+
     /// <summary>
     /// Places a seat hold. Every writer that can add to held + confirmed for a class first locks that
     /// class's row, so the "is there a seat?" check and the insert are atomic per class, across any
@@ -98,4 +102,41 @@ public class HoldService(AdmissionDbContext db, AppOptions options, ILogger<Hold
             hold.CreatedAt,
             now));
     }
+
+    /// <summary>Returns the hold with its effective status (HELD past its expiry reads as EXPIRED).</summary>
+    public async Task<HoldResponse?> GetAsync(Guid holdId, CancellationToken ct)
+    {
+        var rows = await db.Database.SqlQuery<HoldRow>($"""
+            SELECT h.id AS "Id", h.class_id AS "ClassId", c.name AS "ClassName",
+                   CASE WHEN h.status = 'HELD' AND h.expires_at <= now() THEN 'EXPIRED' ELSE h.status END AS "Status",
+                   h.expires_at AS "ExpiresAt", h.created_at AS "CreatedAt", h.confirmed_at AS "ConfirmedAt",
+                   now() AS "ServerTime"
+            FROM holds h JOIN classes c ON c.id = h.class_id
+            WHERE h.id = {holdId}
+            """).ToListAsync(ct);
+
+        return rows.Count == 0 ? null : ToHoldResponse(rows[0]);
+    }
+
+    /// <summary>All of one student's applications, newest first, with effective statuses.</summary>
+    public async Task<IReadOnlyList<MyHoldItem>> ListForStudentAsync(string studentId, CancellationToken ct)
+    {
+        var rows = await db.Database.SqlQuery<HoldRow>($"""
+            SELECT h.id AS "Id", h.class_id AS "ClassId", c.name AS "ClassName",
+                   CASE WHEN h.status = 'HELD' AND h.expires_at <= now() THEN 'EXPIRED' ELSE h.status END AS "Status",
+                   h.expires_at AS "ExpiresAt", h.created_at AS "CreatedAt", h.confirmed_at AS "ConfirmedAt",
+                   now() AS "ServerTime"
+            FROM holds h JOIN classes c ON c.id = h.class_id
+            WHERE h.student_id = {studentId}
+            ORDER BY h.created_at DESC, h.id DESC
+            """).ToListAsync(ct);
+
+        return rows.Select(r => new MyHoldItem(
+            Ids.FormatHold(r.Id), Ids.FormatClass(r.ClassId), r.ClassName, r.Status,
+            r.ExpiresAt, r.CreatedAt, r.ConfirmedAt, r.ServerTime)).ToList();
+    }
+
+    private static HoldResponse ToHoldResponse(HoldRow r) => new(
+        Ids.FormatHold(r.Id), Ids.FormatClass(r.ClassId), r.Status,
+        r.ExpiresAt, r.ClassName, r.CreatedAt, r.ConfirmedAt, r.ServerTime);
 }

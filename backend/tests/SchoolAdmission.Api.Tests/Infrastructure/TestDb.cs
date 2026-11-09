@@ -37,12 +37,16 @@ public sealed class TestDb(string connectionString)
     }
 
     /// <summary>Inserts a hold row directly. <paramref name="expiresInSeconds"/> may be negative.</summary>
-    public Task InsertHoldAsync(string classId, string studentId, string status, int expiresInSeconds = 600) =>
-        ExecuteAsync(
+    public async Task<string> InsertHoldAsync(string classId, string studentId, string status, int expiresInSeconds = 600)
+    {
+        var id = Guid.CreateVersion7();
+        await ExecuteAsync(
             "INSERT INTO holds (id, class_id, student_id, status, expires_at) " +
             "VALUES (@id, @c, @s, @st, now() + make_interval(secs => @secs))",
-            ("id", Guid.CreateVersion7()), ("c", Guid.ParseExact(classId[2..], "N")), ("s", studentId),
+            ("id", id), ("c", Guid.ParseExact(classId[2..], "N")), ("s", studentId),
             ("st", status), ("secs", (double)expiresInSeconds));
+        return "h_" + id.ToString("N");
+    }
 
     public Task<long> CountHoldsAsync(string classId, params string[] statuses) =>
         ScalarAsync<long>(
