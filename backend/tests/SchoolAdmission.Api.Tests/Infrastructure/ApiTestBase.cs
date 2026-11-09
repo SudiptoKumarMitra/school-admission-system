@@ -7,6 +7,8 @@ public abstract class ApiTestBase(PostgresDatabaseFixture database)
     protected PostgresDatabaseFixture Database { get; } = database;
     protected ApiFactory Factory { get; private set; } = null!;
     protected HttpClient Client { get; private set; } = null!;
+    protected ApiClient Api { get; private set; } = null!;
+    protected TestDb Db => new(Database.ConnectionString);
 
     protected virtual int HoldSeconds => 600;
 
@@ -14,6 +16,7 @@ public abstract class ApiTestBase(PostgresDatabaseFixture database)
     {
         Factory = new ApiFactory(Database.ConnectionString, HoldSeconds);
         Client = Factory.CreateClient();
+        Api = new ApiClient(Client);
         return Task.CompletedTask;
     }
 

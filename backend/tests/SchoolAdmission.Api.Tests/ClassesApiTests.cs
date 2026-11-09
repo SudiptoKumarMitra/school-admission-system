@@ -7,8 +7,6 @@ namespace SchoolAdmission.Api.Tests;
 
 public class ClassesApiTests(PostgresDatabaseFixture database) : ApiTestBase(database)
 {
-    private ApiClient Api => new(Client);
-
     [Fact]
     public async Task Create_returns_201_with_location_and_the_contract_fields()
     {

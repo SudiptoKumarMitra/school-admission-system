@@ -14,6 +14,7 @@ public static class ClassEndpoints
         group.MapPost("", CreateClass);
         group.MapGet("", ListClasses);
         group.MapGet("/{classId}", GetClass);
+        group.MapPost("/{classId}/holds", CreateHold);
 
         return app;
     }
@@ -54,6 +55,26 @@ public static class ClassEndpoints
         return found is null ? ClassNotFound().ToResult() : Results.Ok(found);
     }
 
-    private static ApiError ClassNotFound() =>
-        ProblemResults.NotFound(ErrorCodes.ClassNotFound, "The class was not found.");
+    private static async Task<IResult> CreateHold(
+        string classId, HttpRequest request, HoldService holds, CancellationToken ct)
+    {
+        // The header is validated first, so a bad header gets 400 even for an unknown class.
+        var (studentId, headerError) = StudentIdHeader.Read(request);
+        if (headerError is not null)
+        {
+            return headerError.ToResult();
+        }
+
+        if (!Ids.TryParseClass(classId, out var id))
+        {
+            return ApiErrors.ClassNotFound().ToResult();
+        }
+
+        var result = await holds.CreateHoldAsync(id, studentId!, ct);
+        return result.IsSuccess
+            ? Results.Created($"/holds/{result.Value!.HoldId}", result.Value)
+            : result.Error!.ToResult();
+    }
+
+    private static ApiError ClassNotFound() => ApiErrors.ClassNotFound();
 }

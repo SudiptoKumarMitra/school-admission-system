@@ -16,6 +16,7 @@ builder.Services.AddDbContext<AdmissionDbContext>((sp, options) =>
             ?? throw new InvalidOperationException("ConnectionStrings__Default is not set.")));
 
 builder.Services.AddScoped<ClassService>();
+builder.Services.AddScoped<HoldService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter()));
