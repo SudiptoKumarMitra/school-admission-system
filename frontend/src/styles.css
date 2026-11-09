@@ -452,9 +452,12 @@ input[aria-invalid='true'] {
   color: var(--danger);
 }
 
-.my-hold--active {
-  border-color: #9bbbe8;
-  background: #f5f9ff;
+.my-hold--active td {
+  background: #f1f7ff;
+}
+
+.my-hold--active td:first-child {
+  box-shadow: inset 4px 0 0 var(--primary);
 }
 
 .error-boundary {
