@@ -1,0 +1,37 @@
+# Runs the automated tests with Docker only (no .NET or Node install needed).
+#
+#   docker compose -f docker-compose.test.yml run --rm --build backend-tests
+#   docker compose -f docker-compose.test.yml run --rm --build frontend-tests
+#   docker compose -f docker-compose.test.yml down -v          # clean up the throwaway database
+#
+# Uses its own project name and a throwaway database, so it never touches the app's data.
+name: school-admission-test
+
+services:
+  test-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres # throwaway test database
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend-tests:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      # Each test class creates and drops its own database on this server.
+      TEST_DATABASE_URL: "Host=test-db;Port=5432;Username=postgres;Password=postgres"
+    depends_on:
+      test-db:
+        condition: service_healthy
+
+  frontend-tests:
+    build:
+      context: ./frontend
+      target: test
