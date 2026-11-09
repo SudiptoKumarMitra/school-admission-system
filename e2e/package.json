@@ -1,0 +1,14 @@
+{
+  "name": "school-admission-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Browser end-to-end tests for the running School Admission System (docker compose up)",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
