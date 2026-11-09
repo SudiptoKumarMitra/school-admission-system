@@ -1,16 +1,19 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { server } from './test/server'
 import { renderApp } from './test/utils'
 
 describe('App shell', () => {
+  beforeEach(() => {
+    server.use(http.get('http://localhost:8080/classes', () => HttpResponse.json([])))
+  })
+
   it.each(['/', '/classes/new', '/me', '/holds/h_1', '/nowhere'])(
     'shows the student ID box and the menu on %s',
     (route) => {
-      server.use(http.get('http://localhost:8080/classes', () => HttpResponse.json([])))
       renderApp(<App />, { route })
 
       expect(screen.getByLabelText(/জন্ম নিবন্ধন নম্বর/)).toBeInTheDocument()
